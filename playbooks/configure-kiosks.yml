@@ -55,11 +55,12 @@
               'https://homeassistant.hyde.services/'
         dest: /etc/xdg/openbox/autostart
 
-    - name: Copy Dimmer Binary
-      ansible.builtin.copy:
-        src: /config/files/dimmer
-        dest: /usr/local/bin/dimmer
+    - name: Download Dimmer Binary
+      ansible.builtin.get_url:
+        url: "https://raw.githubusercontent.com/hydazz/ansible/main/files/dimmer"
+        dest: "/usr/local/bin/dimmer"
         mode: "0755"
+        owner: "root"
 
     - name: Find Event For Touchscreen
       ansible.builtin.shell:

@@ -18,7 +18,7 @@
         - { key: "UsePAM", value: "yes" }
         - { key: "PubkeyAuthentication", value: "yes" }
       notify: Restart SSH
-        
+
     # User Setup
     - name: Create Ansible User
       ansible.builtin.user:
@@ -57,16 +57,19 @@
       ansible.builtin.file:
         path: "/root/.config/neofetch"
         state: directory
-        mode: '0755'
-    - name: Copy files
-      ansible.builtin.copy:
-        src: "{{ item.file }}"
-        dest: "{{ item.dest }}"
+        mode: "0755"
+    - name: Download Neofetch configuration
+      ansible.builtin.get_url:
+        url: "https://raw.githubusercontent.com/hydazz/ansible/main/files/neofetch.conf"
+        dest: "/root/.config/neofetch/config.conf"
         mode: "0644"
         owner: "root"
-      loop:
-        - { file: '/config/files/neofetch.conf', dest: "/root/.config/neofetch/config.conf" }
-        - { file: '/config/files/.bashrc', dest: "/root/.bashrc" }
+    - name: Download .bashrc
+      ansible.builtin.get_url:
+        url: "https://raw.githubusercontent.com/hydazz/ansible/main/files/.bashrc"
+        dest: "/root/.bashrc"
+        mode: "0644"
+        owner: "root"
     - name: Delete /etc/update-motd.d
       ansible.builtin.file:
         path: "/etc/update-motd.d/"
@@ -101,8 +104,8 @@
     - name: Set systemd journal size limit
       ansible.builtin.lineinfile:
         path: /etc/systemd/journald.conf
-        regexp: '^#?SystemMaxUse='
-        line: 'SystemMaxUse=128M'
+        regexp: "^#?SystemMaxUse="
+        line: "SystemMaxUse=128M"
         create: yes
       when: journald_check.rc == 0
       notify: Restart systemd-journald
