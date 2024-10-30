@@ -1,0 +1,13 @@
+---
+- name: Cleanup Docker on Jenkins Builders
+  hosts: docker_hosts
+  become: true
+
+  tasks:
+    - name: Prune Docker System
+      ansible.builtin.shell: "docker system prune -af --volumes | tail -n 1"
+      register: prune_output
+    
+    - name: Show Prune Data
+      debug: 
+        msg: "Pruned Data: {{ prune_output.stdout }}"

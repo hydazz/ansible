@@ -1,0 +1,120 @@
+---
+- name: Configure Hosts
+  hosts: all
+  become: true
+
+  tasks:
+    # SSH Setup
+    - name: Harden SSH
+      ansible.builtin.lineinfile:
+        path: "/etc/ssh/sshd_config"
+        regex: "^(#)?{{item.key}}"
+        line: "{{item.key}} {{item.value}}"
+        state: present
+      loop:
+        - { key: "PermitRootLogin", value: "yes" }
+        - { key: "PasswordAuthentication", value: "no" }
+        - { key: "ChallengeResponseAuthentication", value: "no" }
+        - { key: "UsePAM", value: "yes" }
+        - { key: "PubkeyAuthentication", value: "yes" }
+      notify: Restart SSH
+        
+    # User Setup
+    - name: Create Ansible User
+      ansible.builtin.user:
+        name: "ansible"
+        create_home: yes
+        shell: /bin/bash
+    - name: Add Ansible to Sudo
+      ansible.builtin.user:
+        name: "ansible"
+        groups: sudo
+        append: yes
+        state: present
+    - name: Set SSH Keys
+      ansible.builtin.authorized_key:
+        user: "{{ item.username }}"
+        state: present
+        exclusive: "{{ item.overwrite }}"
+        key: "{{ item.pubkey }}"
+      loop:
+        - { username: "ansible", pubkey: "{{ ansible_user_public_key }}", overwrite: "yes" }
+        - { username: "root", pubkey: "{{ alex_user_public_key }}", overwrite: "{{ 'yes' if 'proxmox' not in group_names else 'no' }}" }
+    - name: Allow Passwordless Sudo for ansible
+      community.general.sudoers:
+        name: "ansible"
+        state: present
+        user: "ansible"
+        commands: ALL
+
+    # MOTD Setup
+    - name: Install Neofetch
+      ansible.builtin.apt:
+        name: neofetch
+        state: present
+        install_recommends: no
+    - name: Ensure destination directories exist
+      ansible.builtin.file:
+        path: "/root/.config/neofetch"
+        state: directory
+        mode: '0755'
+    - name: Copy files
+      ansible.builtin.copy:
+        src: "{{ item.file }}"
+        dest: "{{ item.dest }}"
+        mode: "0644"
+        owner: "root"
+      loop:
+        - { file: '/config/files/neofetch.conf', dest: "/root/.config/neofetch/config.conf" }
+        - { file: '/config/files/.bashrc', dest: "/root/.bashrc" }
+    - name: Delete /etc/update-motd.d
+      ansible.builtin.file:
+        path: "/etc/update-motd.d/"
+        state: absent
+    - name: Ensure /etc/motd is removed
+      ansible.builtin.file:
+        path: "/etc/motd"
+        state: absent
+
+    # Network Time Setup
+    - name: Install systemd-timesyncd
+      ansible.builtin.apt:
+        name: systemd-timesyncd
+        state: present
+    - name: Set Timezone to Australia/Melbourne
+      ansible.builtin.timezone:
+        name: Australia/Melbourne
+    - name: Enable systemd-timesyncd
+      ansible.builtin.service:
+        name: systemd-timesyncd
+        enabled: yes
+        state: started
+    - name: Trigger Time Synchronization
+      ansible.builtin.command: timedatectl set-ntp true
+
+    # Set Max Journal Size
+    - name: Check if systemd-journald is active
+      ansible.builtin.command: systemctl is-active systemd-journald
+      changed_when: false
+      failed_when: false
+      register: journald_check
+    - name: Set systemd journal size limit
+      ansible.builtin.lineinfile:
+        path: /etc/systemd/journald.conf
+        regexp: '^#?SystemMaxUse='
+        line: 'SystemMaxUse=128M'
+        create: yes
+      when: journald_check.rc == 0
+      notify: Restart systemd-journald
+
+  handlers:
+    - name: Restart SSH
+      ansible.builtin.service:
+        name: sshd
+        state: restarted
+      listen: "Restart SSH"
+    - name: Restart systemd-journald
+      ansible.builtin.systemd:
+        name: systemd-journald
+        state: restarted
+      listen: "Restart systemd-journald"

@@ -1,0 +1,60 @@
+---
+- name: Upgrade All Hosts and Check Kernel
+  hosts: all
+  collections:
+    - community.general
+  become: true
+
+  vars:
+    excluded_hosts: ["laforge"]
+
+  tasks:
+    - name: Update Package Cache
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Upgrade All Packages and Autoremove
+      ansible.builtin.apt:
+        upgrade: dist
+        autoremove: yes
+        purge: true
+      when: inventory_hostname not in excluded_hosts
+
+    - name: Check if Newer Kernel Available
+      ansible.builtin.shell:
+        cmd: needrestart -k -p > /dev/null; echo $?
+      register: kernel_check
+      changed_when: kernel_check.stdout == "2"
+      ignore_errors: true
+
+    - name: Reboot the Host if Newer Kernel Available
+      ansible.builtin.reboot:
+      when: kernel_check.stdout == "2" and inventory_hostname not in groups['lxc'] + groups['proxmox'] + excluded_hosts
+
+  post_tasks:
+    - name: Grab and Display Kernel Information
+      block:
+        - name: Grab Current Kernel
+          command: uname -r
+          register: current_kernel
+
+        - name: Grab Old Kernels
+          shell: >
+            dpkg-query -W -f'${Package}\n' 'linux-*' |
+            sed -nr 's/.*-([0-9]+(\.[0-9]+){2}-[^-]+).*/\1 &/p' |
+            linux-version sort |
+            awk '($1==c){exit} {print $2}' c=$(uname -r | cut -f1,2 -d-)
+          register: old_kernels
+
+        - name: Display Current and Old Kernels
+          debug:
+            msg: "Current Kernel: {{ current_kernel.stdout }}, Old Kernels: {{ old_kernels.stdout_lines }}"
+      when: inventory_hostname not in groups['lxc'] + groups['proxmox']
+
+    - name: Purge Old Kernels
+      ansible.builtin.apt:
+        name: "{{ old_kernels.stdout_lines }}"
+        state: absent
+        purge: true
+        clean: true
+      when: inventory_hostname not in groups['lxc'] + groups['proxmox']
