@@ -52,7 +52,7 @@
               --disable-infobars \
               --disable-pinch \
               --enable-features=OverlayScrollbar \
-              'https://homeassistant.hyde.services/'
+              'https://hass.hyde.services/'
         dest: /etc/xdg/openbox/autostart
 
     - name: Download Dimmer Binary
