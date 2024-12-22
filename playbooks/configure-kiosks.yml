@@ -1,6 +1,6 @@
 ---
 - name: Configure Dashboards
-  hosts: dashboard
+  hosts: hass_kiosks
   become: true
 
   tasks:

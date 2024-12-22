@@ -29,7 +29,7 @@
 
     - name: Reboot the Host if Newer Kernel Available
       ansible.builtin.reboot:
-      when: kernel_check.stdout == "2" and inventory_hostname not in groups['lxc'] + groups['proxmox'] + groups['k3s'] + excluded_hosts
+      when: kernel_check.stdout == "2" and inventory_hostname not in groups['lxc'] + groups['proxmox'] + groups['k8s'] + excluded_hosts
 
   post_tasks:
     - name: Grab and Display Kernel Information

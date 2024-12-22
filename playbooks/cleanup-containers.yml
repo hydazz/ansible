@@ -1,0 +1,25 @@
+---
+- name: Cleanup Container Runtimes
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Check if Docker is installed
+      ansible.builtin.command: "command -v docker"
+      register: docker_check
+      ignore_errors: true
+
+    - name: Check if crictl is installed
+      ansible.builtin.command: "command -v crictl"
+      register: crictl_check
+      ignore_errors: true
+
+    - name: Prune Docker system if Docker is installed
+      ansible.builtin.shell: "docker system prune -af --volumes"
+      when: docker_check.rc == 0
+      register: docker_prune_output
+
+    - name: Clean up CRI-O images if crictl is installed
+      ansible.builtin.shell: "crictl rmi --prune"
+      when: crictl_check.rc == 0
+      register: crictl_prune_output
