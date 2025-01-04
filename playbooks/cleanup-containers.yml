@@ -5,12 +5,12 @@
 
   tasks:
     - name: Check if Docker is installed
-      ansible.builtin.command: "command -v docker"
+      ansible.builtin.shell: "command -v docker"
       register: docker_check
       ignore_errors: true
 
     - name: Check if crictl is installed
-      ansible.builtin.command: "command -v crictl"
+      ansible.builtin.shell: "command -v crictl"
       register: crictl_check
       ignore_errors: true
 
