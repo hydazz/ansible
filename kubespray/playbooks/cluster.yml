@@ -1,0 +1,7 @@
+- name: Cluster
+  hosts: all
+  become: yes
+  gather_facts: yes
+  tasks:
+    - name: Cluster
+      ansible.builtin.import_playbook: kubernetes_sigs.kubespray.cluster
